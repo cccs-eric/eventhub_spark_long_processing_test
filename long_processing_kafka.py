@@ -63,6 +63,7 @@ def main():
     parser.add_argument("--eh_sas_name", required=True)
     parser.add_argument("--eh_sas_key", required=True)
     parser.add_argument("--checkpoint_path", required=True)
+    parser.add_argument("--batch_size", required=True)
     args = parser.parse_args()
 
     sleep_time_secs = 6 * 60
@@ -70,18 +71,17 @@ def main():
     hdfs_delete(spark, args.checkpoint_path)
 
     try:
-        logger.info(f"Reading messages from EventHub {args.eh_namespace}/{args.eh_name} using Kafka connector")
+        logger.info(f"Reading {args.batch_size} messages from EventHub {args.eh_namespace}/{args.eh_name} using Kafka connector")
         EVENT_HUB_SAS = f"Endpoint=sb://{args.eh_namespace}/;SharedAccessKeyName={args.eh_sas_name};SharedAccessKey={args.eh_sas_key}"
         EH_SASL = f'org.apache.kafka.common.security.plain.PlainLoginModule required username="$ConnectionString" password="{EVENT_HUB_SAS}";'
         BOOTSTRAP_SERVERS = f"{args.eh_namespace}:9093"
 
-        microBatchSize = 1
         df = (
             spark.readStream.format("kafka")
             .option("subscribe", args.eh_name)
             .option("startingOffsets", "earliest")
             .option("failOnDataLoss", "false")
-            .option("maxOffsetsPerTrigger", microBatchSize)
+            .option("maxOffsetsPerTrigger", args.batch_size)
             .option("kafka.bootstrap.servers", BOOTSTRAP_SERVERS)
             .option("kafka.sasl.mechanism", "PLAIN")
             .option("kafka.security.protocol", "SASL_SSL")
@@ -103,7 +103,7 @@ def main():
 
         def batch_processing_udf(batch_df: DataFrame, batch_id: int):
             start_batch = time.time()
-            logger.info(f"--- Processing Batch #{batch_id} with Python UDF sleep ---")
+            logger.info(f"--- Processing Batch #{batch_id} with a Python UDF wrapping sleep({sleep_time_secs}) ---")
             batch_df = batch_df.withColumn("sleep", sleep_wrapper(batch_df.topic, sleep_time_secs))
             batch_df.show(n=10000)
             logger.info(f"--- End of Batch #{batch_id} [elapsed: {round(time.time() - start_batch)} secs] ---")

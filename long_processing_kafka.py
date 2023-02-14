@@ -64,9 +64,9 @@ def main():
     parser.add_argument("--eh_sas_key", required=True)
     parser.add_argument("--checkpoint_path", required=True)
     parser.add_argument("--batch_size", required=True)
+    parser.add_argument("--sleep", required=True)
     args = parser.parse_args()
 
-    sleep_time_secs = 6 * 60
     spark = create_spark_session()
     hdfs_delete(spark, args.checkpoint_path)
 
@@ -103,16 +103,16 @@ def main():
 
         def batch_processing_udf(batch_df: DataFrame, batch_id: int):
             start_batch = time.time()
-            logger.info(f"--- Processing Batch #{batch_id} with a Python UDF wrapping sleep({sleep_time_secs}) ---")
-            batch_df = batch_df.withColumn("sleep", sleep_wrapper(batch_df.topic, sleep_time_secs))
-            batch_df.show(n=10000)
+            logger.info(f"--- Processing Batch #{batch_id} with a Python UDF wrapping sleep({args.sleep}) ---")
+            batch_df = batch_df.withColumn("sleep", sleep_wrapper(batch_df.topic, int(args.sleep)))
+            print(f"Batch dataframe constains {batch_df.count()} rows.")
             logger.info(f"--- End of Batch #{batch_id} [elapsed: {round(time.time() - start_batch)} secs] ---")
 
         def batch_processing_sleep(batch_df: DataFrame, batch_id: int):
             start_batch = time.time()
-            logger.info(f"--- Processing Batch #{batch_id} with Python time.sleep({sleep_time_secs}) ---")
-            time.sleep(sleep_time_secs)
-            batch_df.show(n=10000)
+            logger.info(f"--- Processing Batch #{batch_id} with Python time.sleep({args.sleep}) ---")
+            time.sleep(int(args.sleep))
+            print(f"Batch dataframe constains {batch_df.count()} rows.")
             logger.info(f"--- End of Batch #{batch_id} [elapsed: {round(time.time() - start_batch)} secs] ---")
 
         out = df.writeStream.option("checkpointLocation", args.checkpoint_path).foreachBatch(batch_processing_sleep).start()

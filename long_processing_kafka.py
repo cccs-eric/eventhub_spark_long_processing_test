@@ -19,7 +19,7 @@ def create_spark_session() -> SparkSession:
         .config("spark.cores.max", 1)
         .config("spark.executor.cores", 1)
         .config("spark.executor.memory", "2g")
-        .config("spark.dynamicAllocation.enabled", True)
+        .config("spark.dynamicAllocation.enabled", False)
         .config("spark.driver.memory", "2g")
         .config("spark.sql.streaming.forceDeleteTempCheckpointLocation", True)
         .config("spark.sql.adaptive.enabled", False)
